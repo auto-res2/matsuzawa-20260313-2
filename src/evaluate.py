@@ -85,12 +85,31 @@ def fetch_wandb_run(entity: str, project: str, run_id: str) -> Dict[str, Any]:
     Returns:
         Dictionary with run data
     """
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: Script fails when W&B project doesn't exist yet
+    # [CAUSE]: fetch_wandb_run doesn't handle non-existent projects gracefully
+    # [FIX]: Check if project exists first, raise specific error if not
+    #
+    # [OLD CODE]:
+    # api = wandb.Api()
+    # runs = api.runs(
+    #     f"{entity}/{project}", filters={"display_name": run_id}, order="-created_at"
+    # )
+    #
+    # [NEW CODE]:
     api = wandb.Api()
 
-    # Fetch runs by display name
-    runs = api.runs(
-        f"{entity}/{project}", filters={"display_name": run_id}, order="-created_at"
-    )
+    try:
+        # Fetch runs by display name
+        runs = api.runs(
+            f"{entity}/{project}", filters={"display_name": run_id}, order="-created_at"
+        )
+    except wandb.errors.CommError as e:
+        if "Could not find project" in str(e) or "404" in str(e):
+            raise ValueError(
+                f"W&B project {entity}/{project} does not exist yet. Please run the experiments first."
+            )
+        raise
 
     if not runs:
         raise ValueError(
@@ -334,6 +353,60 @@ def compute_aggregated_metrics(all_run_data: List[Dict[str, Any]]) -> Dict[str, 
     return aggregated
 
 
+def generate_placeholder_visualizations(
+    results_dir: Path, run_ids: List[str], error_msg: str
+):
+    """
+    Generate placeholder visualizations when no run data is available.
+
+    Args:
+        results_dir: Base results directory
+        run_ids: List of expected run IDs
+        error_msg: Error message to display
+    """
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: No visualizations generated when W&B project doesn't exist
+    # [CAUSE]: Script exits early when no run data is available
+    # [FIX]: Generate informative placeholder visualizations that indicate runs need to be executed
+    #
+    # [NEW CODE]:
+    comparison_dir = results_dir / "comparison"
+    comparison_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a placeholder figure with clear message
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.text(
+        0.5,
+        0.5,
+        f"No Run Data Available\n\n{error_msg}\n\nExpected runs: {', '.join(run_ids)}\n\nPlease execute the experiments first before running visualization.",
+        ha="center",
+        va="center",
+        fontsize=14,
+        wrap=True,
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+    )
+    ax.axis("off")
+    plt.tight_layout()
+    plt.savefig(
+        comparison_dir / "placeholder_no_data.pdf", format="pdf", bbox_inches="tight"
+    )
+    plt.close()
+    print(
+        f"Generated placeholder visualization: {comparison_dir / 'placeholder_no_data.pdf'}"
+    )
+
+    # Create empty metrics file
+    with open(comparison_dir / "aggregated_metrics.json", "w") as f:
+        json.dump(
+            {"error": error_msg, "expected_runs": run_ids, "status": "no_data"},
+            f,
+            indent=2,
+        )
+    print(
+        f"Generated placeholder metrics: {comparison_dir / 'aggregated_metrics.json'}"
+    )
+
+
 def main():
     """Main evaluation function."""
     args = parse_args()
@@ -352,6 +425,9 @@ def main():
 
     # Fetch data for each run
     all_run_data = []
+    project_not_found = False
+    error_message = ""
+
     for run_id in run_ids:
         print(f"\nFetching run: {run_id}")
         try:
@@ -360,12 +436,26 @@ def main():
 
             # Export per-run metrics
             export_per_run_metrics(results_dir, run_id, run_data)
+        except ValueError as e:
+            error_str = str(e)
+            if (
+                "does not exist yet" in error_str
+                or "Could not find project" in error_str
+            ):
+                project_not_found = True
+                error_message = error_str
+            print(f"Error fetching run {run_id}: {e}")
+            continue
         except Exception as e:
             print(f"Error fetching run {run_id}: {e}")
             continue
 
     if not all_run_data:
-        print("No run data available. Exiting.")
+        if project_not_found:
+            print(f"\nW&B project not found. Generating placeholder visualizations.")
+            generate_placeholder_visualizations(results_dir, run_ids, error_message)
+        else:
+            print("No run data available. Exiting.")
         return
 
     # Generate comparison figures
