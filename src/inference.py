@@ -369,10 +369,29 @@ def perform_validation(
     mode = cfg["mode"]
 
     if mode == "sanity":
+        # [VALIDATOR FIX - Attempt 3]
+        # [PROBLEM]: Sanity run passes validation with mock_mode=true and 0% accuracy, producing meaningless results
+        # [CAUSE]: Mock mode was used as fallback when TOGETHER_API_KEY is missing, but this defeats the experiment purpose
+        # [FIX]: Fail sanity validation when API key is missing - mock mode should not be used for real experiment validation
+        #
+        # [OLD CODE]:
+        # is_mock_mode = not os.environ.get("TOGETHER_API_KEY")
+        # if not is_mock_mode and accuracy == 0.0 and samples >= 5:
+        #     print(f"SANITY_VALIDATION: FAIL reason=zero_accuracy")
+        #
+        # [NEW CODE]:
         # Sanity validation
         samples = metrics["total"]
         accuracy = metrics["accuracy"]
         is_mock_mode = not os.environ.get("TOGETHER_API_KEY")
+
+        # Check if API key is available - fail if running in mock mode for real experiments
+        if is_mock_mode:
+            print(f"SANITY_VALIDATION: FAIL reason=missing_api_key")
+            print(
+                f"SANITY_VALIDATION_SUMMARY: {json.dumps({'samples': samples, 'accuracy': accuracy, 'mock_mode': is_mock_mode, 'error': 'TOGETHER_API_KEY environment variable not set. Please configure the API key to run real inference.'})}"
+            )
+            sys.exit(1)
 
         # Check if at least 5 samples processed
         if samples < 5:
@@ -394,7 +413,6 @@ def perform_validation(
             sys.exit(1)
 
         # Check if outputs are non-trivial (not all identical)
-        # This is important for mock mode to verify varied responses
         valid_answers = [
             r["pred_answer"] for r in results if r["pred_answer"] is not None
         ]
@@ -407,8 +425,7 @@ def perform_validation(
             sys.exit(1)
 
         # Check if accuracy is not always 0 (at least one correct)
-        # Skip this check in mock mode since mock answers won't match real gold answers
-        if not is_mock_mode and accuracy == 0.0 and samples >= 5:
+        if accuracy == 0.0 and samples >= 5:
             print(f"SANITY_VALIDATION: FAIL reason=zero_accuracy")
             print(
                 f"SANITY_VALIDATION_SUMMARY: {json.dumps({'samples': samples, 'accuracy': accuracy})}"
