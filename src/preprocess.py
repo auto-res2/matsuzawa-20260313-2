@@ -83,6 +83,23 @@ def extract_model_answer(response: str, pattern: str = None) -> str:
     Returns:
         Extracted answer string
     """
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: Model answers are full sentences like "Janet makes $18 every day" but gold answers are just "18"
+    # [CAUSE]: When custom pattern captures full sentence, normalize_answer doesn't extract numbers from text
+    # [FIX]: After capturing with custom pattern, extract numeric value from the captured text using priority:
+    #        1. Number after "=" (for calculations like "20 + 80 = 100")
+    #        2. Number after answer verbs (is/are/makes/needs/etc.)
+    #        3. First number in the sentence (most likely the answer)
+    #
+    # [OLD CODE]:
+    # if pattern:
+    #     match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+    #     if match:
+    #         for group in match.groups():
+    #             if group is not None:
+    #                 return normalize_answer(group.strip())
+    #
+    # [NEW CODE]:
     if pattern:
         # Try custom pattern first
         match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
@@ -90,7 +107,33 @@ def extract_model_answer(response: str, pattern: str = None) -> str:
             # Return first non-None group
             for group in match.groups():
                 if group is not None:
-                    return normalize_answer(group.strip())
+                    captured_text = group.strip()
+
+                    # Priority 1: Check for number after an equals sign (e.g., "20 + 80 = 100")
+                    equals_match = re.search(
+                        r"=\s*\$?([+-]?\d+(?:,\d{3})*(?:\.\d+)?)", captured_text
+                    )
+                    if equals_match:
+                        return normalize_answer(equals_match.group(1))
+
+                    # Priority 2: Check for number after common answer verbs
+                    verb_match = re.search(
+                        r"\b(?:is|are|makes?|needs?|have|earns?|costs?|takes?|totals?)\s+\$?([+-]?\d+(?:,\d{3})*(?:\.\d+)?)",
+                        captured_text,
+                        re.IGNORECASE,
+                    )
+                    if verb_match:
+                        return normalize_answer(verb_match.group(1))
+
+                    # Priority 3: Extract first number from the text
+                    numbers = re.findall(
+                        r"\$?([+-]?\d+(?:,\d{3})*(?:\.\d+)?)", captured_text
+                    )
+                    if numbers:
+                        return normalize_answer(numbers[0])
+
+                    # Fallback to original captured text if no number found
+                    return normalize_answer(captured_text)
 
     # Default patterns for numeric answers
     patterns = [
