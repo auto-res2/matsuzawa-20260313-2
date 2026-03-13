@@ -1,0 +1,27 @@
+# Run configuration for proposed AC-CoT method
+run_id: proposed-ac-cot
+
+method:
+  name: ac-cot
+  type: proposed
+  description: "Abstract-then-Compact Chain-of-Thought"
+  prompt_template: "First identify the key idea in one short sentence. Then solve in 2-3 brief steps. Do not revise the answer. End with: Final answer: ..."
+
+model:
+  name: meta-llama/Llama-3.1-8B-Instruct
+  provider: together
+  temperature: 0.0
+  max_tokens: 512
+  top_p: 1.0
+
+dataset:
+  name: gsm8k
+  split: test
+  cache_dir: .cache
+
+inference:
+  samples_sanity: 5
+  samples_pilot: 50
+  samples_full: 1319  # full GSM8K test set
+  batch_size: 1
+  answer_extraction_pattern: "Final answer:\\s*(.+?)(?:\\n|$)"
