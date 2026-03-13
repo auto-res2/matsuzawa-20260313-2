@@ -16,5 +16,17 @@ dependencies = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = []
+# [VALIDATOR FIX - Attempt 1]
+# [PROBLEM]: Build failed with "ValueError: Unable to determine which files to ship inside the wheel"
+# [CAUSE]: Hatchling could not find package directory matching project name (matsuzawa_ac_cot)
+# [FIX]: Add [tool.hatch.build.targets.wheel] section to specify src/ as the package location
+#
+# [OLD CODE]:
+# (no build configuration present)
+#
+# [NEW CODE]:
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[dependency-groups]
+dev = []

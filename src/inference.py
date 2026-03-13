@@ -72,11 +72,30 @@ def call_model_api(prompt: str, model_config: Dict[str, Any]) -> str:
 
     if provider == "together":
         try:
-            import together
+            # [VALIDATOR FIX - Attempt 1]
+            # [PROBLEM]: module 'together' has no attribute 'Complete'
+            # [CAUSE]: Together API changed from together.Complete.create() to client-based API
+            # [FIX]: Use Together client class with completions.create() method
+            #
+            # [OLD CODE]:
+            # import together
+            # together.api_key = os.environ.get("TOGETHER_API_KEY")
+            # response = together.Complete.create(
+            #     model=model_name,
+            #     prompt=prompt,
+            #     temperature=temperature,
+            #     max_tokens=max_tokens,
+            #     top_p=top_p,
+            #     stop=["Question:", "\n\n\n"],
+            # )
+            # return response["output"]["choices"][0]["text"].strip()
+            #
+            # [NEW CODE]:
+            from together import Together
 
-            together.api_key = os.environ.get("TOGETHER_API_KEY")
+            client = Together(api_key=os.environ.get("TOGETHER_API_KEY"))
 
-            response = together.Complete.create(
+            response = client.completions.create(
                 model=model_name,
                 prompt=prompt,
                 temperature=temperature,
@@ -84,7 +103,7 @@ def call_model_api(prompt: str, model_config: Dict[str, Any]) -> str:
                 top_p=top_p,
                 stop=["Question:", "\n\n\n"],
             )
-            return response["output"]["choices"][0]["text"].strip()
+            return response.choices[0].text.strip()
         except ImportError:
             raise ImportError(
                 "together package required. Install with: pip install together"

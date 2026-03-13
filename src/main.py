@@ -24,24 +24,39 @@ def main(cfg: DictConfig) -> None:
     if not cfg.get("run"):
         raise ValueError("run configuration is required. Use run=<run_id> in CLI")
 
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: ConfigAttributeError: Key 'inference' is not in struct
+    # [CAUSE]: Config structure has inference settings under cfg.run.inference, not cfg.inference
+    # [FIX]: Create top-level inference key and copy inference settings from run config
+    #
+    # [OLD CODE]:
+    # cfg.inference.samples = cfg.run.inference.samples_sanity
+    #
+    # [NEW CODE]:
     # Apply mode-specific overrides for sanity mode
     if cfg.mode == "sanity":
         # Sanity mode: minimal samples, online wandb
-        cfg.inference.samples = cfg.run.inference.samples_sanity
+        OmegaConf.set_struct(cfg, False)
+        cfg.inference = OmegaConf.create({"samples": cfg.run.inference.samples_sanity})
+        OmegaConf.set_struct(cfg, True)
         cfg.wandb.mode = "online"
         # Use separate wandb namespace for sanity
         cfg.wandb.project = f"{cfg.wandb.project}-sanity"
 
     elif cfg.mode == "pilot":
         # Pilot mode: 50-100 samples, online wandb
-        cfg.inference.samples = cfg.run.inference.samples_pilot
+        OmegaConf.set_struct(cfg, False)
+        cfg.inference = OmegaConf.create({"samples": cfg.run.inference.samples_pilot})
+        OmegaConf.set_struct(cfg, True)
         cfg.wandb.mode = "online"
         # Use separate wandb namespace for pilot
         cfg.wandb.project = f"{cfg.wandb.project}-pilot"
 
     elif cfg.mode == "full":
         # Full mode: all samples
-        cfg.inference.samples = cfg.run.inference.samples_full
+        OmegaConf.set_struct(cfg, False)
+        cfg.inference = OmegaConf.create({"samples": cfg.run.inference.samples_full})
+        OmegaConf.set_struct(cfg, True)
         cfg.wandb.mode = "online"
     else:
         raise ValueError(f"Unknown mode: {cfg.mode}. Must be sanity, pilot, or full")
