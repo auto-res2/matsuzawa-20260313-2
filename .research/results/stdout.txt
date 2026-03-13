@@ -1,0 +1,14 @@
+=== [VISUALIZATION] Start at Fri Mar 13 12:10:28 UTC 2026 ===
+Evaluating runs: ['comparative-1', 'proposed']
+Fetching data from WandB: airas/2026-0313-matsuzawa-2
+
+Fetching run: comparative-1
+Error fetching run comparative-1: Could not find project 2026-0313-matsuzawa-2
+
+Fetching run: proposed
+Error fetching run proposed: Could not find project 2026-0313-matsuzawa-2
+
+W&B project not found. Generating placeholder visualizations.
+Generated placeholder visualization: .research/results/comparison/placeholder_no_data.pdf
+Generated placeholder metrics: .research/results/comparison/aggregated_metrics.json
+=== [VISUALIZATION] PASSED at Fri Mar 13 12:10:33 UTC 2026 ===
