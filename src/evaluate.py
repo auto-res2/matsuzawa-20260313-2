@@ -15,16 +15,62 @@ matplotlib.use("Agg")  # Use non-interactive backend
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Evaluate and compare experimental runs"
-    )
-    parser.add_argument(
-        "--results_dir", type=str, required=True, help="Results directory"
-    )
-    parser.add_argument(
-        "--run_ids", type=str, required=True, help="JSON list of run IDs"
-    )
-    return parser.parse_args()
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: evaluate.py called with arguments but argparse expects --flag format
+    # [CAUSE]: Workflow passes args as "results_dir=X run_ids=Y" but argparse needs "--results_dir X --run_ids Y"
+    # [FIX]: Support both Hydra-style (key=value) and argparse-style (--key value) arguments
+    #
+    # [OLD CODE]:
+    # parser = argparse.ArgumentParser(
+    #     description="Evaluate and compare experimental runs"
+    # )
+    # parser.add_argument(
+    #     "--results_dir", type=str, required=True, help="Results directory"
+    # )
+    # parser.add_argument(
+    #     "--run_ids", type=str, required=True, help="JSON list of run IDs"
+    # )
+    # return parser.parse_args()
+    #
+    # [NEW CODE]:
+    import sys
+
+    # Check if arguments are in Hydra-style format (key=value)
+    hydra_style = any("=" in arg and not arg.startswith("--") for arg in sys.argv[1:])
+
+    if hydra_style:
+        # Parse Hydra-style arguments
+        args_dict = {}
+        for arg in sys.argv[1:]:
+            if "=" in arg:
+                key, value = arg.split("=", 1)
+                args_dict[key] = value
+
+        # Validate required arguments
+        if "results_dir" not in args_dict:
+            raise ValueError("Missing required argument: results_dir")
+        if "run_ids" not in args_dict:
+            raise ValueError("Missing required argument: run_ids")
+
+        # Create namespace object
+        class Args:
+            def __init__(self, results_dir: str, run_ids: str):
+                self.results_dir = results_dir
+                self.run_ids = run_ids
+
+        return Args(results_dir=args_dict["results_dir"], run_ids=args_dict["run_ids"])
+    else:
+        # Parse argparse-style arguments
+        parser = argparse.ArgumentParser(
+            description="Evaluate and compare experimental runs"
+        )
+        parser.add_argument(
+            "--results_dir", type=str, required=True, help="Results directory"
+        )
+        parser.add_argument(
+            "--run_ids", type=str, required=True, help="JSON list of run IDs"
+        )
+        return parser.parse_args()
 
 
 def fetch_wandb_run(entity: str, project: str, run_id: str) -> Dict[str, Any]:
