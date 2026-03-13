@@ -1,0 +1,35 @@
+# Run config for baseline zero-shot CoT
+run_id: comparative-1-gsm8k
+
+method:
+  type: comparative-1
+  name: Baseline-ZeroShot-CoT
+  description: Standard zero-shot chain-of-thought baseline
+  prompt_template: |
+    {question}
+    
+    Let's think step by step.
+
+dataset:
+  name: gsm8k
+  split: test
+  max_samples: 100  # Capped for cost control
+
+model:
+  provider: openai  # or anthropic
+  name: gpt-3.5-turbo
+  temperature: 0.0  # greedy decoding
+  max_tokens: 300
+  
+inference:
+  batch_size: 1
+  cache_dir: .cache
+
+evaluation:
+  metrics:
+    - accuracy
+    - compactness
+    - robustness
+  answer_extraction:
+    pattern: 'Final answer:\s*(.+?)(?:\n|$)|(?:answer is|equals?)\s*([+-]?\d+(?:\.\d+)?)'
+    normalize: true

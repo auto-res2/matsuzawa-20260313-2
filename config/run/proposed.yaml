@@ -1,0 +1,35 @@
+# Run config for proposed AC-CoT method
+run_id: proposed-gsm8k
+
+method:
+  type: proposed
+  name: AC-CoT
+  description: Abstract-then-Compact Chain-of-Thought with explicit abstraction phase
+  prompt_template: |
+    {question}
+    
+    First identify the key idea in one short sentence. Then solve in 2-3 brief steps. Do not revise the answer. End with: Final answer: ...
+
+dataset:
+  name: gsm8k
+  split: test
+  max_samples: 100  # Capped for cost control
+
+model:
+  provider: openai  # or anthropic
+  name: gpt-3.5-turbo
+  temperature: 0.0  # greedy decoding
+  max_tokens: 300
+  
+inference:
+  batch_size: 1
+  cache_dir: .cache
+
+evaluation:
+  metrics:
+    - accuracy
+    - compactness
+    - robustness
+  answer_extraction:
+    pattern: 'Final answer:\s*(.+?)(?:\n|$)'
+    normalize: true
