@@ -21,7 +21,16 @@ from src.preprocess import (
 
 def get_llm_client(cfg: DictConfig):
     """Get LLM client based on provider."""
-    provider = cfg.model.provider.lower()
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: Key 'model' is not in struct - accessing cfg.model.provider failed
+    # [CAUSE]: Model config is nested under cfg.run.model, not cfg.model directly
+    # [FIX]: Changed cfg.model to cfg.run.model throughout the function
+    #
+    # [OLD CODE]:
+    # provider = cfg.model.provider.lower()
+    #
+    # [NEW CODE]:
+    provider = cfg.run.model.provider.lower()
 
     if provider == "openai":
         import openai
@@ -43,22 +52,34 @@ def get_llm_client(cfg: DictConfig):
 
 def generate_response(client, cfg: DictConfig, prompt: str) -> str:
     """Generate response from LLM."""
-    provider = cfg.model.provider.lower()
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: Key 'model' is not in struct - accessing cfg.model.provider failed
+    # [CAUSE]: Model config is nested under cfg.run.model, not cfg.model directly
+    # [FIX]: Changed all cfg.model references to cfg.run.model
+    #
+    # [OLD CODE]:
+    # provider = cfg.model.provider.lower()
+    # model=cfg.model.name,
+    # temperature=cfg.model.temperature,
+    # max_tokens=cfg.model.max_tokens,
+    #
+    # [NEW CODE]:
+    provider = cfg.run.model.provider.lower()
 
     if provider == "openai":
         response = client.chat.completions.create(
-            model=cfg.model.name,
+            model=cfg.run.model.name,
             messages=[{"role": "user", "content": prompt}],
-            temperature=cfg.model.temperature,
-            max_tokens=cfg.model.max_tokens,
+            temperature=cfg.run.model.temperature,
+            max_tokens=cfg.run.model.max_tokens,
         )
         return response.choices[0].message.content
     elif provider == "anthropic":
         response = client.messages.create(
-            model=cfg.model.name,
+            model=cfg.run.model.name,
             messages=[{"role": "user", "content": prompt}],
-            temperature=cfg.model.temperature,
-            max_tokens=cfg.model.max_tokens,
+            temperature=cfg.run.model.temperature,
+            max_tokens=cfg.run.model.max_tokens,
         )
         return response.content[0].text
     else:
